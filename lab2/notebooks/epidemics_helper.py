@@ -180,6 +180,10 @@ class SimulationSIR(object):
         self.gamma = gamma
         # Printer for logging
         self._printer = ProgressPrinter(verbose=verbose)
+        self.S = [] #S statistics
+        self.I = []
+        self.R = []
+        self.time = []
 
     def get_node_status(self, node, time):
         """
@@ -194,6 +198,22 @@ class SimulationSIR(object):
                 return 2
         except IndexError:
             raise ValueError('Invalid node `{}`'.format(node))
+    
+    def _get_nodes_stats(self, time):
+        """
+        Get the SIR statistics of nodes at given time
+        """
+        S = np.sum(self.status==0) * 100. / self.n_nodes
+        I = np.sum(self.status==1) * 100. / self.n_nodes
+        R = np.sum(self.status==2) * 100. / self.n_nodes
+        return S, I, R
+    
+    def _update_SIR_stats(self, time):
+        S, I, R = self._get_nodes_stats(time)
+        self.S.append(S)
+        self.I.append(I)
+        self.R.append(R)
+        self.time.append(time)
 
     def _draw_edge_delay(self):
         """
@@ -291,6 +311,7 @@ class SimulationSIR(object):
         time = 0
         last_print = 0
         while self.processing:
+            last_time = time
             # Get the next event to process
             (node, event_type), time = self.processing.pop(0)
             if time > self.max_time:
@@ -303,6 +324,8 @@ class SimulationSIR(object):
             else:
                 raise ValueError("Invalid event type")
             self._printer.print(self, time)
+            if time-last_time >= 1:
+                self._update_SIR_stats(time)
         self._printer.println(self, time)
         self.max_time = time
         # Free memory
